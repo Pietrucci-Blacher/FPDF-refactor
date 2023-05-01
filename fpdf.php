@@ -1306,8 +1306,7 @@ class FPDF
         // Escape special characters
         if (str_contains($s, '(') || str_contains($s, ')') || str_contains($s, '\\') || str_contains($s, "\r")) {
             return str_replace(['\\', '(', ')', "\r"], ['\\\\', '\\(', '\\)', '\\r'], $s);
-        }
-        else {
+        } else {
             return $s;
         }
     }
