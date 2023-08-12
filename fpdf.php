@@ -1,15 +1,15 @@
 <?php
 /*******************************************************************************
- * FPDF                                                                         *
- *                                                                              *
- * Version: 1.85                                                                *
- * Date:    2022-11-10                                                          *
- * Author:  Olivier PLATHEY                                                      *
- *******************************************************************************/
+* FPDF                                                                         *
+*                                                                              *
+* Version: 1.86                                                                *
+* Date:    2023-06-25                                                          *
+* Author:  Olivier PLATHEY                                                     *
+*******************************************************************************/
 
 class FPDF
 {
-    const VERSION = '1.85';
+    public const VERSION = '1.86';
     protected int $page;               // current page number
     protected int $n;                  // current object number
     protected $offsets;            // array of object offsets
@@ -39,7 +39,7 @@ class FPDF
     protected $x, $y;              // current position in user unit
     protected int $lasth;              // height of last printed cell
     protected float $LineWidth;          // line width in user unit
-    protected string $fontpath;           // path containing fonts
+    protected string $fontpath;           // directory containing fonts
     protected array $CoreFonts;          // array of core font names
     protected array $fonts;              // array of used fonts
     protected array $FontFiles;          // array of font files
@@ -109,13 +109,8 @@ class FPDF
         // Font path
         if (defined('FPDF_FONTPATH')) {
             $this->fontpath = FPDF_FONTPATH;
-            if (!str_ends_with($this->fontpath, '/') && !str_ends_with($this->fontpath, '\\')) {
-                $this->fontpath .= '/';
-            }
-        } elseif (is_dir(dirname(__FILE__) . '/font')) {
-            $this->fontpath = dirname(__FILE__) . '/font/';
         } else {
-            $this->fontpath = '';
+            $this->fontpath = __DIR__ .'/font/';
         }
         // Core fonts
         $this->CoreFonts = ['courier', 'helvetica', 'times', 'symbol', 'zapfdingbats'];
@@ -474,7 +469,10 @@ class FPDF
         $this->_out(sprintf('%.2F %.2F %.2F %.2F re %s', $x * $this->k, ($this->h - $y) * $this->k, $w * $this->k, -$h * $this->k, $op));
     }
 
-    function AddFont($family, $style = '', $file = ''): void
+    /**
+     * @throws Exception
+     */
+    function AddFont($family, $style = '', $file = '', $dir=''): void
     {
         // Add a TrueType, OpenType or Type1 font
         $family = strtolower($family);
@@ -489,10 +487,20 @@ class FPDF
         if (isset($this->fonts[$fontkey])) {
             return;
         }
-        $info = $this->_loadfont($file);
+        if (str_contains($file, '/') || str_contains($file, "\\")) {
+            $this->Error('Incorrect font definition file name: '.$file);
+        }
+        if ($dir=='') {
+            $dir = $this->fontpath;
+        }
+        if (!str_ends_with($dir, '/') && !str_ends_with($dir, '\\')) {
+            $dir .= '/';
+        }
+        $info = $this->_loadfont($dir.$file);
         $info['i'] = count($this->fonts) + 1;
         if (!empty($info['file'])) {
             // Embedded font
+            $info['file'] = $dir.$info['file'];
             if ($info['type'] == 'TrueType') {
                 $this->FontFiles[$info['file']] = ['length1' => $info['originalsize']];
             } else {
@@ -1207,15 +1215,11 @@ class FPDF
     /**
      * @throws Exception
      */
-    protected function _loadfont($font): array
+    protected function _loadfont($path): array
     {
-        // Load a font definition file from the font directory
-        if (str_contains($font, '/') || str_contains($font, "\\")) {
-            $this->Error('Incorrect font definition file name: ' . $font);
-        }
-        include($this->fontpath . $font);
+        include($path);
         if (!isset($name)) {
-            $this->Error('Could not include font definition file');
+            $this->Error('Could not include font definition file: '.$path);
         }
         if (isset($enc)) {
             $enc = strtolower($enc);
@@ -1725,7 +1729,7 @@ class FPDF
             // Font file embedding
             $this->_newobj();
             $this->FontFiles[$file]['n'] = $this->n;
-            $font = file_get_contents($this->fontpath . $file, true);
+            $font = file_get_contents($file);
             if (!$font) {
                 $this->Error('Font file not found: ' . $file);
             }
@@ -2049,6 +2053,5 @@ class FPDF
         $this->_put($offset);
         $this->_put('%%EOF');
         $this->state = 3;
-        $this->CreationDate = time();
     }
 }
